@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Phone Collector</title>
+<script src="/sdk.js"></script>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { background: #121212; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    #topbar {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 16px; background: #1a1a1a; border-bottom: 1px solid #333;
+        font-size: 14px; font-weight: bold; flex-shrink: 0;
+    }
+    #topbar .money { color: #4caf50; }
+    #topbar .nick { color: #64b5f6; }
+
+    #app { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: 90px; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    h2 { margin-bottom: 16px; font-size: 20px; }
+
+    /* ---- Телефоны ---- */
+    .phone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+    .phone-card {
+        background: #1e1e1e; border-radius: 12px; padding: 10px; text-align: center;
+        border: 2px solid #333; position: relative;
+    }
+    .phone-card .rarity {
+        position: absolute; top: 6px; left: 6px; font-size: 9px;
+        padding: 2px 6px; border-radius: 4px; color: #fff; font-weight: bold;
+    }
+    .phone-card svg { width: 55px; height: 85px; margin: 12px 0 6px; }
+    .phone-card .pname { font-size: 11px; color: #ddd; font-weight: bold; }
+    .phone-card .ptoken { font-size: 8px; color: #777; margin-top: 3px; word-break: break-all; }
+    .phone-card .sell {
+        margin-top: 8px; font-size: 11px; padding: 5px 8px; background: #b71c1c;
+        border-radius: 6px; width: 100%;
+    }
+
+    /* ---- Кейсы ---- */
+    .case-list, .shop-list { display: flex; flex-direction: column; gap: 10px; }
+    .case-item {
+        background: linear-gradient(135deg, #1e1e1e, #2a2a2a);
+        border-radius: 12px; padding: 14px; display: flex; justify-content: space-between;
+        align-items: center; border: 1px solid #333;
+    }
+    .case-item .info { flex: 1; }
+    .case-item .name { font-weight: bold; font-size: 15px; }
+    .case-item .sub { font-size: 11px; color: #888; margin-top: 3px; }
+    .case-item .right { text-align: right; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+    .case-item .price { color: #4caf50; font-weight: bold; font-size: 15px; }
+
+    /* ---- Магазин ---- */
+    .shop-item {
+        background: #1e1e1e; border-radius: 12px; padding: 12px;
+        display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; gap: 10px;
+    }
+    .shop-item .left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .shop-item .left svg { width: 40px; height: 60px; flex-shrink: 0; }
+    .shop-item .sinfo { min-width: 0; }
+    .shop-item .sname { font-weight: bold; font-size: 13px; }
+    .shop-item .stoken { font-size: 9px; color: #666; word-break: break-all; }
+    .shop-item .sprice { color: #4caf50; font-weight: bold; font-size: 14px; }
+    .shop-item .sright { text-align: right; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+
+    button {
+        background: #4caf50; color: #fff; border: none; padding: 8px 14px;
+        border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer;
+    }
+    button:disabled { background: #555; cursor: not-allowed; }
+
+    #shop-timer { font-size: 12px; color: #ff9800; font-weight: normal; margin-left: 8px; }
+
+    /* ---- Профиль ---- */
+    .profile-section {
+        background: #1e1e1e; border-radius: 12px; padding: 14px;
+        margin-bottom: 12px; border: 1px solid #333;
+    }
+    .profile-section label { display: block; font-size: 12px; color: #aaa; margin-bottom: 8px; }
+    .profile-section input {
+        width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444;
+        background: #2a2a2a; color: #fff; font-size: 14px;
+    }
+    .token-big {
+        font-family: monospace; font-size: 16px; color: #4caf50;
+        background: #0a0a0a; padding: 14px; border-radius: 8px; text-align: center;
+        letter-spacing: 1px; font-weight: bold; word-break: break-all;
+    }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    .row input { flex: 1; }
+    .row button { flex-shrink: 0; }
+
+    /* ---- Навигация ---- */
+    .bottom-nav {
+        position: fixed; bottom: 0; left: 0; right: 0; background: #1e1e1e;
+        display: flex; justify-content: space-around; padding: 10px 0 14px;
+        border-top: 1px solid #333; z-index: 10;
+    }
+    .nav-item {
+        display: flex; flex-direction: column; align-items: center; font-size: 10px;
+        color: #666; cursor: pointer; background: none; border: none; padding: 0 10px;
+    }
+    .nav-item.active { color: #4caf50; }
+    .nav-item .icon { font-size: 20px; margin-bottom: 3px; }
+
+    .notification {
+        position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+        background: #333; padding: 12px 20px; border-radius: 8px; font-size: 13px;
+        z-index: 100; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        max-width: 90%; text-align: center;
+    }
+    .notification.show { opacity: 1; }
+    .empty { color: #666; text-align: center; padding: 40px 20px; grid-column: 1/-1; }
+</style>
+</head>
+<body>
+<div id="topbar">
+    <span class="money">💰 <span id="money-display">0</span> $</span>
+    <span class="nick">👤 <span id="nick-display">Игрок</span></span>
+</div>
+
+<div id="app">
+    <div id="screen-phones" class="screen active">
+        <h2>📱 Мои смартфоны</h2>
+        <div id="my-phones" class="phone-grid"></div>
+    </div>
+
+    <div id="screen-cases" class="screen">
+        <h2>📦 Кейсы</h2>
+        <div id="case-list" class="case-list"></div>
+    </div>
+
+    <div id="screen-shop" class="screen">
+        <h2>🛒 Магазин <span id="shop-timer"></span></h2>
+        <div id="shop-list" class="shop-list"></div>
+    </div>
+
+    <div id="screen-profile" class="screen">
+        <h2>👤 Профиль</h2>
+
+        <div class="profile-section">
+            <label>🔑 Мой уникальный токен (для обмена с друзьями)</label>
+            <div class="token-big" id="my-token-display">—</div>
+            <button onclick="copyMyToken()" style="margin-top:10px;width:100%;">📋 Копировать токен</button>
+        </div>
+
+        <div class="profile-section">
+            <label>✏️ Никнейм</label>
+            <div class="row">
+                <input type="text" id="nickname-input" placeholder="Ваш ник">
+                <button onclick="saveNickname()">Сохранить</button>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <label>🔄 Обменять телефон по токену друга</label>
+            <div class="row">
+                <input type="text" id="friend-token" placeholder="USR-XXXX-XXXX-XXXX" style="font-family:monospace;">
+                <button onclick="sendExchangeRequest()">Обменять</button>
+            </div>
+            <p style="font-size:11px;color:#666;margin-top:8px;">Случайный телефон из вашей коллекции уйдёт, взамен придёт случайный телефон друга.</p>
+        </div>
+    </div>
+</div>
+
+<div class="bottom-nav">
+    <button class="nav-item active" onclick="switchScreen('phones', this)">
+        <span class="icon">📱</span>Смартфоны
+    </button>
+    <button class="nav-item" onclick="switchScreen('cases', this)">
+        <span class="icon">📦</span>Кейсы
+    </button>
+    <button class="nav-item" onclick="switchScreen('shop', this)">
+        <span class="icon">🛒</span>Магазин
+    </button>
+    <button class="nav-item" onclick="switchScreen('profile', this)">
+        <span class="icon">👤</span>Профиль
+    </button>
+</div>
+
+<div id="notification" class="notification"></div>
+
+<script>
+// ====== 1. ГЕНЕРАЦИЯ 100 СМАРТФОНОВ ======
+const BRANDS = ['Vivo','Samsung','Apple','Poco','Oppo','OnePlus','Xiaomi','Realme','Honor','Huawei','Google','Nothing','Motorola','Nokia','Sony','Asus','ZTE','Infinix','Tecno','Meizu'];
+const MODEL_SUFFIX = ['Lite','Neo','Plus','Pro','Ultra'];
+const RARITIES = ['common','uncommon','rare','epic','legendary'];
+const RARITY_INFO = {
+    common:    { label: 'Обычный',    color: '#888',    minVal: 100,  maxVal: 300 },
+    uncommon:  { label: 'Необычный',  color: '#4caf50', minVal: 300,  maxVal: 600 },
+    rare:      { label: 'Редкий',     color: '#2196f3', minVal: 600,  maxVal: 1200 },
+    epic:      { label: 'Эпический',  color: '#9c27b0', minVal: 1200, maxVal: 2500 },
+    legendary: { label: 'Легендарный', color: '#ff9800', minVal: 2500, maxVal: 5000 }
+};
+
+let allPhones = [];
+
+function randStr(len) {
+    return Math.random().toString(36).substring(2, 2 + len).toUpperCase().padEnd(len, '0');
+}
+function generatePhoneToken(brand) {
+    return brand.substring(0, 3).toUpperCase() + '-' + randStr(4) + '-' + randStr(4) + '-' + randStr(4);
+}
+function generatePlayerToken() {
+    return 'USR-' + randStr(4) + '-' + randStr(4) + '-' + randStr(4);
+}
+
+function generatePhones() {
+    allPhones = [];
+    let id = 1;
+    BRANDS.forEach(brand => {
+        for (let i = 0; i < 5; i++) {
+            const rarity = RARITIES[i]; // 0→common, 1→uncommon, 2→rare, 3→epic, 4→legendary
+            const info = RARITY_INFO[rarity];
+            const value = Math.floor(info.minVal + Math.random() * (info.maxVal - info.minVal));
+            const colors = ['#2a2a2a','#333','#4a4a4a','#555','#6a6a6a','#888','#1a1a1a'];
+            allPhones.push({
+                id: id++,
+                name: brand + ' ' + MODEL_SUFFIX[i],
+                brand,
+                rarity,
+                value,
+                color: colors[Math.floor(Math.random() * colors.length)]
+            });
+        }
+    });
+}
+
+function createPhoneSVG(phone) {
+    const info = RARITY_INFO[phone.rarity] || { color: '#444' };
+    return `
+    <svg viewBox="0 0 100 160" xmlns="http://www.w3.org/2000/svg">
+        <rect x="8" y="8" width="84" height="144" rx="14" fill="${phone.color}" stroke="${info.color}" stroke-width="2.5"/>
+        <rect x="16" y="24" width="68" height="112" rx="5" fill="#0a0a0a"/>
+        <circle cx="50" cy="146" r="4" fill="#222"/>
+        <rect x="58" y="14" width="18" height="22" rx="4" fill="#1a1a1a" stroke="#333"/>
+        <circle cx="64" cy="21" r="3" fill="#444"/>
+        <circle cx="70" cy="21" r="3" fill="#444"/>
+        <circle cx="67" cy="29" r="3" fill="#444"/>
+    </svg>`;
+}
+
+// ====== 2. СОСТОЯНИЕ ======
+const STORAGE_KEY = 'phoneCollector_v2'; // новая версия — старые данные не мешают
+
+const DEFAULT_STATE = {
+    money: 5000,
+    myPhones: [],
+    myToken: null,
+    nickname: 'Игрок',
+    shopItems: [],
+    shopExpiresAt: 0
+};
+
+function loadState() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const merged = { ...DEFAULT_STATE, ...saved };
+        if (!Array.isArray(merged.myPhones)) merged.myPhones = [];
+        if (!Array.isArray(merged.shopItems)) merged.shopItems = [];
+        return merged;
+    } catch (e) {
+        return { ...DEFAULT_STATE };
+    }
+}
+
+let state = loadState();
+if (!state.myToken) state.myToken = generatePlayerToken();
+
+function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+    updateUI();
+}
+
+// ====== 3. УВЕДОМЛЕНИЯ И НАВИГАЦИЯ ======
+function notify(msg) {
+    const el = document.getElementById('notification');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 2500);
+}
+function switchScreen(id, btn) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+// ====== 4. ОБНОВЛЕНИЕ UI ======
+function updateUI() {
+    document.getElementById('money-display').textContent = state.money;
+    document.getElementById('nick-display').textContent = state.nickname;
+    renderMyPhones();
+    renderCases();
+    refreshShopIfNeeded();
+    renderShop();
+    renderProfile();
+}
+
+function renderMyPhones() {
+    const c = document.getElementById('my-phones');
+    if (state.myPhones.length === 0) {
+        c.innerHTML = '<p class="empty">У вас пока нет смартфонов.<br>Откройте кейс или купите в магазине!</p>';
+        return;
+    }
+    c.innerHTML = state.myPhones.map(p => {
+        const info = RARITY_INFO[p.rarity] || RARITY_INFO.common;
+        return `
+        <div class="phone-card" style="border-color:${info.color}">
+            <div class="rarity" style="background:${info.color}">${info.label}</div>
+            ${createPhoneSVG(p)}
+            <div class="pname">${p.name}</div>
+            <div class="ptoken">${p.token}</div>
+            <button class="sell" onclick="sellPhone('${p.id}')">💰 ${Math.floor(p.value * 0.8)}$</button>
+        </div>`;
+    }).join('');
+}
+
+// ====== 5. КЕЙСЫ ======
+const CASES = [
+    { id: 1, name: 'Базовый кейс',      price: 50,   rarity: 'common',    icon: '📦' },
+    { id: 2, name: 'Средний кейс',      price: 300,  rarity: 'uncommon',  icon: '🎁' },
+    { id: 3, name: 'Продвинутый кейс',  price: 350,  rarity: 'rare',      icon: '💎' },
+    { id: 4, name: 'Премиум кейс',      price: 1000, rarity: 'epic',      icon: '👑' },
+    { id: 5, name: 'Элитный кейс',      price: 2500, rarity: 'legendary', icon: '🔥' }
+];
+
+function renderCases() {
+    const c = document.getElementById('case-list');
+    c.innerHTML = CASES.map(cs => {
+        const info = RARITY_INFO[cs.rarity];
+        const pool = allPhones.filter(p => p.rarity === cs.rarity);
+        const priceRange = pool.length
+            ? `${Math.min(...pool.map(p=>p.value))}–${Math.max(...pool.map(p=>p.value))}$`
+            : '—';
+        return `
+        <div class="case-item" style="border-color:${info.color}">
+            <div class="info">
+                <div class="name">${cs.icon} ${cs.name}</div>
+                <div class="sub">${info.label} · стоимость ${priceRange} · ${pool.length} моделей в пуле</div>
+            </div>
+            <div class="right">
+                <div class="price">${cs.price} $</div>
+                <button onclick="openCase(${cs.id})">Открыть</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openCase(caseId) {
+    const cs = CASES.find(x => x.id === caseId);
+    if (!cs) return notify('Кейс не найден');
+    if (state.money < cs.price) return notify('❌ Недостаточно денег!');
+
+    const pool = allPhones.filter(p => p.rarity === cs.rarity);
+    if (pool.length === 0) return notify('Ошибка: пул пуст');
+
+    const base = pool[Math.floor(Math.random() * pool.length)];
+    const newPhone = {
+        ...base,
+        id: 'own_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        token: generatePhoneToken(base.brand)
+    };
+    state.money -= cs.price;
+    state.myPhones.push(newPhone);
+    saveState();
+    notify(`🎉 Выпал ${newPhone.name}!`);
+}
+
+// ====== 6. МАГАЗИН ======
+const SHOP_SIZE = 12;
+const SHOP_DURATION = 60 * 60 * 1000; // 1 час
+
+function refreshShopIfNeeded() {
+    if (state.shopItems.length === SHOP_SIZE && Date.now() < state.shopExpiresAt) return;
+
+    state.shopItems = [];
+    const usedIds = new Set();
+    while (state.shopItems.length < SHOP_SIZE) {
+        const p = allPhones[Math.floor(Math.random() * allPhones.length)];
+        if (usedIds.has(p.id)) continue;
+        usedIds.add(p.id);
+        state.shopItems.push({
+            ...p,
+            id: 'shop_' + Date.now() + '_' + p.id,
+            baseId: p.id,
+            shopPrice: Math.floor(p.value * (1.1 + Math.random() * 0.6)),
+            token: generatePhoneToken(p.brand)
+        });
+    }
+    state.shopExpiresAt = Date.now() + SHOP_DURATION;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
+}
+
+function renderShop() {
+    const c = document.getElementById('shop-list');
+    if (state.shopItems.length === 0) {
+        c.innerHTML = '<p class="empty">Магазин пуст.</p>';
+        return;
+    }
+    c.innerHTML = state.shopItems.map((item, idx) => {
+        const info = RARITY_INFO[item.rarity] || RARITY_INFO.common;
+        return `
+        <div class="shop-item">
+            <div class="left">
+                ${createPhoneSVG(item)}
+                <div class="sinfo">
+                    <div class="sname">${item.name}</div>
+                    <div style="font-size:10px;color:${info.color};font-weight:bold;">${info.label}</div>
+                    <div class="stoken">${item.token}</div>
+                </div>
+            </div>
+            <div class="sright">
+                <div class="sprice">${item.shopPrice} $</div>
+                <button onclick="buyFromShop(${idx})">Купить</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function updateShopTimer() {
+    const el = document.getElementById('shop-timer');
+    if (!el) return;
+    const ms = state.shopExpiresAt - Date.now();
+    if (ms <= 0) { el.textContent = '— обновляется...'; return; }
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    el.textContent = `— обновление через ${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function buyFromShop(idx) {
+    const item = state.shopItems[idx];
+    if (!item) return;
+    if (state.money < item.shopPrice) return notify('❌ Недостаточно денег!');
+    const newPhone = {
+        ...item,
+        id: 'own_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)
+    };
+    state.money -= item.shopPrice;
+    state.myPhones.push(newPhone);
+    state.shopItems.splice(idx, 1);
+    saveState();
+    notify(`✅ Куплено: ${item.name}`);
+}
+
+// ====== 7. ПРОДАЖА СВОЕГО ТЕЛЕФОНА ======
+function sellPhone(id) {
+    const idx = state.myPhones.findIndex(p => String(p.id) === String(id));
+    if (idx === -1) return;
+    const phone = state.myPhones[idx];
+    const earnings = Math.floor(phone.value * 0.8);
+    state.myPhones.splice(idx, 1);
+    state.money += earnings;
+    saveState();
+    notify(`💰 Продано ${phone.name} за ${earnings}$`);
+}
+
+// ====== 8. ПРОФИЛЬ ======
+function renderProfile() {
+    document.getElementById('nickname-input').value = state.nickname;
+    document.getElementById('my-token-display').textContent = state.myToken;
+}
+
+function saveNickname() {
+    const v = document.getElementById('nickname-input').value.trim();
+    if (!v) return notify('Введите ник');
+    state.nickname = v;
+    saveState();
+    notify('✅ Ник сохранён');
+}
+
+function copyMyToken() {
+    const token = state.myToken;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(token).then(() => notify('📋 Токен скопирован!'));
+    } else {
+        notify('Токен: ' + token);
+    }
+}
+
+function sendExchangeRequest() {
+    const friendToken = document.getElementById('friend-token').value.trim().toUpperCase();
+    if (!friendToken) return notify('Введите токен друга');
+    if (friendToken === state.myToken) return notify('Это ваш собственный токен!');
+    if (!friendToken.startsWith('USR-')) return notify('Неверный формат. Должен начинаться с USR-');
+    if (state.myPhones.length === 0) return notify('У вас нет телефонов для обмена');
+
+    const give = state.myPhones[Math.floor(Math.random() * state.myPhones.length)];
+    const base = allPhones[Math.floor(Math.random() * allPhones.length)];
+    const received = {
+        ...base,
+        id: 'exc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        token: generatePhoneToken(base.brand)
+    };
+
+    state.myPhones = state.myPhones.filter(p => p.id !== give.id);
+    state.myPhones.push(received);
+    saveState();
+    document.getElementById('friend-token').value = '';
+    notify(`🔄 Обмен с ${friendToken}: отдан ${give.name}, получен ${received.name}`);
+}
+
+// ====== 9. ЗАПУСК ======
+generatePhones();
+updateUI();
+
+// Таймер обновления магазина и обратного отсчёта
+setInterval(() => {
+    updateShopTimer();
+    if (Date.now() >= state.shopExpiresAt) {
+        refreshShopIfNeeded();
+        renderShop();
+    }
+}, 1000);
+
+// Yandex Games SDK (если загружен)
+if (typeof YaGames !== 'undefined') {
+    YaGames.init().then(() => console.log('Yandex Games SDK инициализирован')).catch(() => {});
+}
+</script>
+</body>
+</html>
